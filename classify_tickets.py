@@ -35,18 +35,28 @@ print(df["category"].value_counts().to_string())
 # 2. Определение признаков
 # ──────────────────────────────────────────────────────────────────────────────
 # Используем только те поля, которые известны в момент создания тикета.
-# resolution_time_minutes, escalated, csat_ticket, support_response —
-# post-factum данные, их включение в модель = утечка данных (data leakage).
+#
+# Исключены как утечка данных (data leakage):
+#   - resolution_time_minutes, escalated, csat_ticket, support_response —
+#     появляются только после обработки тикета оператором
+#   - priority — в реальном продукте проставляется модерацией/автоклассификатором
+#     уже ПОСЛЕ поступления обращения, то есть определяется на основе категории
+#   - sentiment_score — тональность тоже вычисляется отдельной моделью после
+#     поступления тикета, а не приходит вместе с ним
+#
+# Если бы модель видела priority или sentiment_score, она бы по ним
+# восстанавливала category почти однозначно (целевая переменная утекает
+# через эти признаки) — F1 получался бы нереалистично высоким.
 NUMERIC_FEATURES = [
     "hour_of_day", "age", "days_since_registration",
     "total_likes", "total_matches", "messages_sent",
     "active_days_last_week", "boosts_purchased", "superlikes_purchased",
     "past_tickets_count", "avg_csat_history",
-    "message_length_chars", "message_length_words", "sentiment_score",
+    "message_length_chars", "message_length_words",
 ]
 CATEGORICAL_FEATURES = [
     "day_of_week", "gender", "subscription",
-    "platform", "channel", "language", "priority",
+    "platform", "channel", "language",
 ]
 TEXT_FEATURE = "user_message"
 TARGET = "category"
@@ -128,7 +138,7 @@ tfidf_test = feature_selector.transform(tfidf_test_full)
 # Сохраняем имена отобранных токенов — понадобятся для feature importance
 all_tokens = np.array(tfidf_vectorizer.get_feature_names_out())
 selected_tokens = all_tokens[feature_selector.get_support()]
-print(f"После chi²-отбора: {tfidf_train.shape[1]} токенов")
+print(f"После хиквадрат-отбора: {tfidf_train.shape[1]} токенов")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
